@@ -201,9 +201,33 @@ function resetCheck(grupo){
     .then(()=>toast('Lista limpa ✓'))
     .catch(()=>{recarregar();toast('Falha ao limpar — recarregando');});
 }
-const toggleNP=async id=>{await call('toggle_nao_prog',{id});await recarregar()};
+// Marca/desmarca pendência na hora (otimista) e salva em segundo plano.
+function toggleNP(id){
+  const n=DADOS.nao_programadas.find(x=>String(x.id)===String(id));
+  if(!n)return;
+  n.feita=n.feita?0:1;                     // inverte o estado local
+  loadPend();                              // redesenha imediatamente
+  call('toggle_nao_prog',{id})
+    .catch(()=>{                           // se falhar, reverte
+      n.feita=n.feita?0:1;
+      loadPend();
+      toast('Falha ao salvar — tente de novo');
+    });
+}
 const delNP=async id=>{if(confirm('Excluir?')){await call('del_nao_prog',{id});await recarregar()}};
-const toggleIns=async id=>{await call('toggle_inspecao',{id});await recarregar()};
+// Marca/desmarca inspeção na hora (otimista) e salva em segundo plano.
+function toggleIns(id){
+  const i=DADOS.inspecoes.find(x=>String(x.id)===String(id));
+  if(!i)return;
+  i.resolvido=i.resolvido?0:1;             // inverte o estado local
+  loadPend();                              // redesenha imediatamente
+  call('toggle_inspecao',{id})
+    .catch(()=>{                           // se falhar, reverte
+      i.resolvido=i.resolvido?0:1;
+      loadPend();
+      toast('Falha ao salvar — tente de novo');
+    });
+}
 const delIns=async id=>{if(confirm('Excluir?')){await call('del_inspecao',{id});await recarregar()}};
 function abrirNaoProg(){
   modalForm('Nova melhoria/conserto',`
