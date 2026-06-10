@@ -8,6 +8,8 @@ let CFG={url:localStorage.getItem('gs_url')||'', senha:localStorage.getItem('gs_
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
 function fmt(n){return n==null||n===''?'—':Number(n).toLocaleString('pt-BR')}
 function fmtData(d){if(!d)return'—';d=String(d);const m=d.match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:d}
+// Converte para número tratando vazio/nulo como null e aceitando vírgula decimal.
+function num(v){if(v===''||v===null||v===undefined)return null;const n=Number(String(v).replace(',','.'));return isNaN(n)?null:n;}
 
 // ---------- comunicação com o Apps Script ----------
 // Usa text/plain para evitar preflight CORS (o Apps Script aceita assim).
