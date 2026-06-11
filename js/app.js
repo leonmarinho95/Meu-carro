@@ -8,19 +8,17 @@ let CFG={url:localStorage.getItem('gs_url')||'', senha:localStorage.getItem('gs_
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),1800)}
 function fmt(n){return n==null||n===''?'—':Number(n).toLocaleString('pt-BR')}
 function fmtData(d){if(!d)return'—';d=String(d);const m=d.match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:d}
+// Converte para número tratando vazio/nulo como null e aceitando vírgula decimal.
+function num(v){if(v===''||v===null||v===undefined)return null;const n=Number(String(v).replace(',','.'));return isNaN(n)?null:n;}
 
-// ---------- comunicação com o Apps Script ----------
-// Usa text/plain para evitar preflight CORS (o Apps Script aceita assim).
+// ---------- escrita (agora no Firestore) ----------
+// Mantém a assinatura call(acao, extra) para todas as chamadas existentes.
 async function call(acao,extra){
-  const body=Object.assign({acao,senha:CFG.senha},extra||{});
-  const r=await fetch(CFG.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});
-  const j=await r.json();
-  if(j&&j.erro==='nao_autorizado'){throw new Error('senha');}
-  return j;
+  return await escreverFirestore(acao,extra||{});
 }
-// Recarrega todos os dados numa só chamada e atualiza a tela atual.
+// Recarrega todos os dados do Firestore e atualiza a tela atual.
 async function recarregar(){
-  DADOS=await call('tudo');
+  DADOS=await carregarTudoFirestore();
   KM=DADOS.km_atual;
   $('#kmVal').textContent=fmt(KM);
   $('#veic').textContent=DADOS.veiculo||'';
@@ -201,9 +199,33 @@ function resetCheck(grupo){
     .then(()=>toast('Lista limpa ✓'))
     .catch(()=>{recarregar();toast('Falha ao limpar — recarregando');});
 }
-const toggleNP=async id=>{await call('toggle_nao_prog',{id});await recarregar()};
+// Marca/desmarca pendência na hora (otimista) e salva em segundo plano.
+function toggleNP(id){
+  const n=DADOS.nao_programadas.find(x=>String(x.id)===String(id));
+  if(!n)return;
+  n.feita=n.feita?0:1;                     // inverte o estado local
+  loadPend();                              // redesenha imediatamente
+  call('toggle_nao_prog',{id})
+    .catch(()=>{                           // se falhar, reverte
+      n.feita=n.feita?0:1;
+      loadPend();
+      toast('Falha ao salvar — tente de novo');
+    });
+}
 const delNP=async id=>{if(confirm('Excluir?')){await call('del_nao_prog',{id});await recarregar()}};
-const toggleIns=async id=>{await call('toggle_inspecao',{id});await recarregar()};
+// Marca/desmarca inspeção na hora (otimista) e salva em segundo plano.
+function toggleIns(id){
+  const i=DADOS.inspecoes.find(x=>String(x.id)===String(id));
+  if(!i)return;
+  i.resolvido=i.resolvido?0:1;             // inverte o estado local
+  loadPend();                              // redesenha imediatamente
+  call('toggle_inspecao',{id})
+    .catch(()=>{                           // se falhar, reverte
+      i.resolvido=i.resolvido?0:1;
+      loadPend();
+      toast('Falha ao salvar — tente de novo');
+    });
+}
 const delIns=async id=>{if(confirm('Excluir?')){await call('del_inspecao',{id});await recarregar()}};
 function abrirNaoProg(){
   modalForm('Nova melhoria/conserto',`
@@ -375,27 +397,35 @@ function fecharModal(){$('#ov').classList.remove('on')}
 $('#ov').onclick=e=>{if(e.target.id==='ov')fecharModal()};
 function hoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 
-// ---------- inicialização / setup ----------
+// ---------- inicialização / login Firebase ----------
 $('#cfgBtn').onclick=async()=>{
-  const url=$('#cfgUrl').value.trim(), senha=$('#cfgSenha').value;
+  const email=$('#cfgUrl').value.trim(), senha=$('#cfgSenha').value;
   const erro=$('#setupErro');
-  if(!url||!senha){erro.style.display='block';erro.textContent='Preencha a URL e a senha.';return;}
-  const btn=$('#cfgBtn');btn.disabled=true;btn.textContent='Conectando...';
-  CFG={url,senha};
+  if(!email||!senha){erro.style.display='block';erro.textContent='Preencha o e-mail e a senha.';return;}
+  const btn=$('#cfgBtn');btn.disabled=true;btn.textContent='Entrando...';
   try{
-    await recarregar();
-    localStorage.setItem('gs_url',url);localStorage.setItem('gs_senha',senha);
-    document.body.classList.add('pronto');loadDash();
+    await fbLogin(email,senha);   // a sessão fica salva; onAuth cuida do resto
   }catch(e){
     erro.style.display='block';
-    erro.textContent=e.message==='senha'?'Senha incorreta.':'Não consegui conectar. Confira se a URL termina em /exec e está publicada para "Qualquer pessoa".';
-    btn.disabled=false;btn.textContent='Conectar';
+    erro.textContent='E-mail ou senha incorretos.';
+    btn.disabled=false;btn.textContent='Entrar';
   }
 };
 
-(async function init(){
-  if(CFG.url&&CFG.senha){
-    try{await recarregar();document.body.classList.add('pronto');loadDash();}
-    catch(e){/* mostra setup */ $('#cfgUrl').value=CFG.url;}
+// Reage ao estado de login: entrou -> carrega e mostra; saiu -> mostra login.
+fbOnAuth(async(user)=>{
+  if(user){
+    try{
+      await recarregar();
+      document.body.classList.add('pronto');
+      loadDash();
+    }catch(e){
+      const erro=$('#setupErro');
+      erro.style.display='block';
+      erro.textContent='Conectei, mas falhei ao carregar os dados. Tente recarregar a página.';
+    }
+  }else{
+    document.body.classList.remove('pronto');
+    const btn=$('#cfgBtn');if(btn){btn.disabled=false;btn.textContent='Entrar';}
   }
-})();
+});

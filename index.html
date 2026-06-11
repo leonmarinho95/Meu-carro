@@ -14,14 +14,14 @@
 <div id="setup" class="setup">
   <div class="setup-box">
     <div class="brand"><span class="dot"></span>Garagem</div>
-    <div class="setup-sub">Conecte à sua planilha do Google</div>
+    <div class="setup-sub">Entre para acessar seus dados</div>
     <div id="setupErro" class="setup-erro" style="display:none"></div>
-    <div class="fg"><label>URL do app da Web (Apps Script)</label>
-      <input id="cfgUrl" placeholder="https://script.google.com/.../exec"></div>
+    <div class="fg"><label>E-mail</label>
+      <input id="cfgUrl" type="email" placeholder="seu e-mail"></div>
     <div class="fg"><label>Senha</label>
-      <input id="cfgSenha" type="password" placeholder="a senha que você definiu no script"></div>
-    <button class="setup-btn" id="cfgBtn">Conectar</button>
-    <div class="setup-help">É a URL que termina em <code>/exec</code>, gerada quando você publica o Apps Script. Veja o guia de instalação.</div>
+      <input id="cfgSenha" type="password" placeholder="sua senha"></div>
+    <button class="setup-btn" id="cfgBtn">Entrar</button>
+    <div class="setup-help">Use o e-mail e a senha cadastrados no seu acesso.</div>
   </div>
 </div>
 
@@ -144,6 +144,11 @@
 <div class="ov" id="ov"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
 
+<!-- Firebase (compat: funciona com script clássico, sem import) -->
+<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore-compat.js"></script>
+<script src="js/firestore-dados.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
