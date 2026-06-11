@@ -1,0 +1,23 @@
+{
+  "name": "Garagem — Monitor de Manutenção",
+  "short_name": "Garagem",
+  "description": "Acompanhamento de manutenção do carro",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#14171c",
+  "theme_color": "#14171c",
+  "icons": [
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
