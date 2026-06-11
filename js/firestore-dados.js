@@ -77,6 +77,14 @@ function _calcular(t, kmAtual) {
   return t;
 }
 
+// Converte o documento de referência (linhas como objetos) de volta para
+// arrays [tipo, num, desc], que é o formato que o app (refRows) renderiza.
+function _refLinhas(snap) {
+  if (!snap.exists) return [];
+  var linhas = snap.data().linhas || [];
+  return linhas.map(function (o) { return [o.tipo, o.num, o.desc]; });
+}
+
 // ---------- leitura de uma coleção inteira ----------
 async function _lerColecao(nome) {
   var snap = await _db.collection(nome).get();
@@ -96,7 +104,9 @@ async function carregarTudoFirestore() {
     _lerColecao("inspecoes"),
     _lerColecao("consumo"),
     _lerColecao("danos"),
-    _lerColecao("checklist")
+    _lerColecao("checklist"),
+    _db.collection("referencia").doc("fusiveis_painel").get(),
+    _db.collection("referencia").doc("fusiveis_motor").get()
   ]);
 
   var cfg = res[0].exists ? res[0].data() : {};
@@ -126,7 +136,10 @@ async function carregarTudoFirestore() {
     consumo: res[5],
     danos: res[6],
     checklist: res[7],
-    referencia: {}   // referência elétrica: tratada na Fase 4 (não migrada ainda)
+    referencia: {
+      fusiveis_painel: _refLinhas(res[8]),
+      fusiveis_motor: _refLinhas(res[9])
+    }
   };
 }
 
