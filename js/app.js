@@ -128,14 +128,14 @@ function abrirTarefa(id){
 // ---------- PENDÊNCIAS ----------
 function loadPend(){
   const np=DADOS.nao_programadas;
-  $('#listNaoProg').innerHTML=np.map(n=>`<div class="row ${n.feita?'done':''}">
-    <div class="chk ${n.feita?'on':''}" onclick="toggleNP(${n.id})">✓</div>
+  $('#listNaoProg').innerHTML=np.map(n=>`<div class="row">
+    <div class="chk" onclick="resolverNP(${n.id})" title="Marcar como resolvido">✓</div>
     <div class="body"><div class="t">${n.tarefa}</div>${n.obs?`<div class="s">${n.obs}</div>`:''}</div>
     <span class="prio" style="background:rgba(242,165,22,.13);color:var(--amber)">${n.prioridade}</span>
     <button class="x" onclick="delNP(${n.id})">×</button></div>`).join('')||'<div class="empty">Nenhuma pendência.</div>';
   const ins=DADOS.inspecoes;
-  $('#listInspec').innerHTML=ins.map(i=>`<div class="row ${i.resolvido?'done':''}">
-    <div class="chk ${i.resolvido?'on':''}" onclick="toggleIns(${i.id})">✓</div>
+  $('#listInspec').innerHTML=ins.map(i=>`<div class="row">
+    <div class="chk" onclick="resolverIns(${i.id})" title="Marcar como resolvido">✓</div>
     <div class="body"><div class="t">${i.problema}</div>${i.solucao?`<div class="s">→ ${i.solucao}</div>`:''}</div>
     <button class="x" onclick="delIns(${i.id})">×</button></div>`).join('')||'<div class="empty">Nenhum ponto registrado.</div>';
   loadChecklist();
@@ -227,6 +227,44 @@ function toggleIns(id){
     });
 }
 const delIns=async id=>{if(confirm('Excluir?')){await call('del_inspecao',{id});await recarregar()}};
+
+// Resolver uma melhoria/conserto: edita o texto, registra no histórico e remove da lista.
+function resolverNP(id){
+  const n=DADOS.nao_programadas.find(x=>String(x.id)===String(id));
+  if(!n)return;
+  const txtPad=n.tarefa||'';
+  modalForm('Concluir e enviar ao histórico',`
+    <div class="fg"><label>Descrição no histórico</label><textarea id="r_d" rows="2">${txtPad}</textarea></div>
+    <div class="frow">
+      <div class="fg"><label>Data</label><input id="r_dt" type="date" value="${hoje()}"></div>
+      <div class="fg"><label>KM</label><input id="r_k" type="number" value="${Math.round(KM)}"></div>
+    </div>`,
+    async()=>{
+      const desc=$('#r_d').value.trim()||txtPad;
+      await call('add_historico',{descricao:desc,data:$('#r_dt').value,km:$('#r_k').value});
+      await call('del_nao_prog',{id});
+      fecharModal();await recarregar();
+    });
+}
+// Resolver um ponto de inspeção: idem, usando problema (e solução, se houver).
+function resolverIns(id){
+  const i=DADOS.inspecoes.find(x=>String(x.id)===String(id));
+  if(!i)return;
+  let txtPad=i.problema||'';
+  if(i.solucao)txtPad+=' — '+i.solucao;
+  modalForm('Concluir e enviar ao histórico',`
+    <div class="fg"><label>Descrição no histórico</label><textarea id="r_d" rows="2">${txtPad}</textarea></div>
+    <div class="frow">
+      <div class="fg"><label>Data</label><input id="r_dt" type="date" value="${hoje()}"></div>
+      <div class="fg"><label>KM</label><input id="r_k" type="number" value="${Math.round(KM)}"></div>
+    </div>`,
+    async()=>{
+      const desc=$('#r_d').value.trim()||txtPad;
+      await call('add_historico',{descricao:desc,data:$('#r_dt').value,km:$('#r_k').value});
+      await call('del_inspecao',{id});
+      fecharModal();await recarregar();
+    });
+}
 function abrirNaoProg(){
   modalForm('Nova melhoria/conserto',`
     <div class="fg"><label>Descrição</label><input id="f_t"></div>
@@ -269,6 +307,7 @@ function loadHist(){
   $('#listHist').innerHTML=barra+(h.map(r=>`<div class="row">
     <div class="body"><div class="t">${r.descricao||''}</div>
     <div class="meta">${fmtData(r.data)} · ${r.km?fmt(r.km)+' km':'—'}${origemHist(r)==='auto'?' · <span style="color:var(--faint)">programada</span>':''}</div></div>
+    <button class="x" onclick="editarHist(${r.id})" style="color:var(--muted);font-size:18px">✎</button>
     <button class="x" onclick="delHist(${r.id})">×</button></div>`).join('')||'<div class="empty">Nada neste filtro.</div>');
   const c=DADOS.consumo;
   const max=Math.max(...c.map(x=>+x.consumo_medio||0),1);
@@ -279,6 +318,21 @@ function loadHist(){
     <div class="bar"><i style="width:${(+x.consumo_medio||0)/max*100}%"></i></div></div></div>`).join('')||'<div class="empty">Sem registros de consumo.</div>';
 }
 const delHist=async id=>{if(confirm('Excluir registro?')){await call('del_historico',{id});await recarregar()}};
+// Editar um registro do histórico (descrição, data, km).
+function editarHist(id){
+  const r=DADOS.historico.find(x=>String(x.id)===String(id));
+  if(!r)return;
+  modalForm('Editar registro',`
+    <div class="fg"><label>Descrição</label><textarea id="e_d" rows="2">${(r.descricao||'').replace(/"/g,'&quot;')}</textarea></div>
+    <div class="frow">
+      <div class="fg"><label>Data</label><input id="e_dt" type="date" value="${(String(r.data).match(/\d{4}-\d{2}-\d{2}/)||[hoje()])[0]}"></div>
+      <div class="fg"><label>KM</label><input id="e_k" type="number" value="${r.km||''}"></div>
+    </div>`,
+    async()=>{
+      await call('edit_historico',{id,descricao:$('#e_d').value,data:$('#e_dt').value,km:$('#e_k').value});
+      fecharModal();await recarregar();
+    });
+}
 function abrirHist(){
   modalForm('Novo registro no histórico',`
     <div class="fg"><label>Descrição</label><textarea id="f_d" rows="2"></textarea></div>

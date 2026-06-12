@@ -226,6 +226,12 @@ async function escreverFirestore(acao, b) {
       });
       return { ok: true };
     }
+    case "edit_historico": {
+      await _db.collection("historico").doc(String(b.id)).set({
+        data: b.data || _hojeISO(), km: _num(b.km), descricao: b.descricao || null
+      }, { merge: true });
+      return { ok: true };
+    }
     case "del_historico": return _del("historico", b.id);
 
     case "add_nao_prog": {
