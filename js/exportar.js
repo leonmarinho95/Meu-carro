@@ -144,8 +144,14 @@ function exportarPDF() {
     checarPagina(10);
     doc.text("Média geral registrada: " + (media ? media.toFixed(2) : "—") + " km/L  (" + c.length + " abastecimentos)", M, y);
     y += 6;
-    // últimos 5 registros
+    // últimos 5 registros (com aviso do total)
     var ult = c.slice().reverse().slice(0, 5);
+    if (c.length > 5) {
+      doc.setTextColor(120);
+      doc.text("5 abastecimentos mais recentes:", M + 4, y);
+      doc.setTextColor(0);
+      y += 5;
+    }
     ult.forEach(function (x) {
       checarPagina(5);
       doc.setTextColor(90);
@@ -153,6 +159,12 @@ function exportarPDF() {
       doc.setTextColor(0);
       y += 4.6;
     });
+    if (c.length > 5) {
+      doc.setTextColor(140); doc.setFontSize(9);
+      doc.text("... e mais " + (c.length - 5) + " registros anteriores (média acima considera todos).", M + 4, y);
+      doc.setFontSize(10); doc.setTextColor(0);
+      y += 5;
+    }
     y += 4;
   }
 
