@@ -179,3 +179,11 @@ nav.tabs button.on{color:var(--accent);background:rgba(242,165,22,.1)}
 .setup-help code{font-family:'JetBrains Mono';color:var(--muted);background:var(--panel-2);padding:1px 5px;border-radius:4px}
 .setup-erro{background:rgba(229,72,77,.13);border:1px solid rgba(229,72,77,.4);color:var(--red);font-size:13px;padding:10px 13px;border-radius:10px;margin-bottom:16px;text-align:center}
 body.pronto .setup{display:none}
+
+/* ---------- barra de exportação (aba Histórico) ---------- */
+.export-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.export-btn{flex:1;min-width:140px;background:var(--panel-2);color:var(--ink);
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;
+  font-weight:600;cursor:pointer;transition:border-color .15s,background .15s}
+.export-btn:hover{border-color:var(--accent);background:var(--panel)}
+.export-btn:active{transform:translateY(1px)}

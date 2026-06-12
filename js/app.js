@@ -249,10 +249,14 @@ function abrirInspecao(){
 // ---------- HISTÓRICO + CONSUMO ----------
 function loadHist(){
   const h=DADOS.historico.slice().reverse();
-  $('#listHist').innerHTML=h.map(r=>`<div class="row">
+  const barra=`<div class="export-bar">
+    <button class="export-btn" onclick="exportarPDF()">📄 PDF de histórico</button>
+    <button class="export-btn" onclick="exportarBackup()">💾 Backup completo</button>
+  </div>`;
+  $('#listHist').innerHTML=barra+(h.map(r=>`<div class="row">
     <div class="body"><div class="t">${r.descricao||''}</div>
     <div class="meta">${fmtData(r.data)} · ${r.km?fmt(r.km)+' km':'—'}</div></div>
-    <button class="x" onclick="delHist(${r.id})">×</button></div>`).join('')||'<div class="empty">Sem registros.</div>';
+    <button class="x" onclick="delHist(${r.id})">×</button></div>`).join('')||'<div class="empty">Sem registros.</div>');
   const c=DADOS.consumo;
   const max=Math.max(...c.map(x=>+x.consumo_medio||0),1);
   $('#listConsumo').innerHTML=c.slice().reverse().map(x=>`<div class="row">
