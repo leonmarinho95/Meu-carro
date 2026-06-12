@@ -247,16 +247,29 @@ function abrirInspecao(){
 }
 
 // ---------- HISTÓRICO + CONSUMO ----------
+// Origem de um registro: usa o campo 'origem' ou, em registros antigos,
+// deduz pelo prefixo "[Manutenção]" (gravado pelas tarefas programadas).
+function origemHist(r){
+  if(r.origem==='auto'||r.origem==='manual')return r.origem;
+  return String(r.descricao||'').indexOf('[Manutenção]')===0?'auto':'manual';
+}
+let _filtroHist=localStorage.getItem('filtroHist')||'todos';
+function setFiltroHist(f){_filtroHist=f;localStorage.setItem('filtroHist',f);loadHist();}
+
 function loadHist(){
-  const h=DADOS.historico.slice().reverse();
+  let h=DADOS.historico.slice().reverse();
+  if(_filtroHist==='manual')h=h.filter(r=>origemHist(r)==='manual');
+  else if(_filtroHist==='auto')h=h.filter(r=>origemHist(r)==='auto');
+  const fb=(v,txt)=>`<button class="filtro-btn${_filtroHist===v?' on':''}" onclick="setFiltroHist('${v}')">${txt}</button>`;
   const barra=`<div class="export-bar">
     <button class="export-btn" onclick="exportarPDF()">📄 PDF de histórico</button>
     <button class="export-btn" onclick="exportarBackup()">💾 Backup completo</button>
-  </div>`;
+  </div>
+  <div class="filtro-bar">${fb('todos','Todos')}${fb('manual','Manuais')}${fb('auto','Automáticos')}</div>`;
   $('#listHist').innerHTML=barra+(h.map(r=>`<div class="row">
     <div class="body"><div class="t">${r.descricao||''}</div>
-    <div class="meta">${fmtData(r.data)} · ${r.km?fmt(r.km)+' km':'—'}</div></div>
-    <button class="x" onclick="delHist(${r.id})">×</button></div>`).join('')||'<div class="empty">Sem registros.</div>');
+    <div class="meta">${fmtData(r.data)} · ${r.km?fmt(r.km)+' km':'—'}${origemHist(r)==='auto'?' · <span style="color:var(--faint)">programada</span>':''}</div></div>
+    <button class="x" onclick="delHist(${r.id})">×</button></div>`).join('')||'<div class="empty">Nada neste filtro.</div>');
   const c=DADOS.consumo;
   const max=Math.max(...c.map(x=>+x.consumo_medio||0),1);
   $('#listConsumo').innerHTML=c.slice().reverse().map(x=>`<div class="row">

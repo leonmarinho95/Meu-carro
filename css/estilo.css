@@ -187,3 +187,10 @@ body.pronto .setup{display:none}
   font-weight:600;cursor:pointer;transition:border-color .15s,background .15s}
 .export-btn:hover{border-color:var(--accent);background:var(--panel)}
 .export-btn:active{transform:translateY(1px)}
+
+/* ---------- filtro do histórico ---------- */
+.filtro-bar{display:flex;gap:8px;margin-bottom:14px}
+.filtro-btn{flex:1;background:transparent;color:var(--muted);border:1px solid var(--line);
+  border-radius:10px;padding:8px 10px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.filtro-btn.on{background:var(--accent);color:#14171c;border-color:var(--accent)}
+.filtro-btn:not(.on):hover{border-color:var(--accent);color:var(--ink)}

@@ -192,7 +192,7 @@ async function escreverFirestore(acao, b) {
       await ref.set({ ult_km: km, ult_data: data }, { merge: true });
       var hid = await _proxId("historico");
       await _db.collection("historico").doc(String(hid)).set({
-        id: hid, data: data, km: km, descricao: "[Manutenção] " + (t.tarefa || "")
+        id: hid, data: data, km: km, descricao: "[Manutenção] " + (t.tarefa || ""), origem: "auto"
       });
       if (km > kmCfg) await _db.collection("config").doc("app").set({ km_atual: km }, { merge: true });
       return { ok: true };
@@ -222,7 +222,7 @@ async function escreverFirestore(acao, b) {
     case "add_historico": {
       var hid2 = await _proxId("historico");
       await _db.collection("historico").doc(String(hid2)).set({
-        id: hid2, data: b.data || _hojeISO(), km: _num(b.km), descricao: b.descricao || null
+        id: hid2, data: b.data || _hojeISO(), km: _num(b.km), descricao: b.descricao || null, origem: "manual"
       });
       return { ok: true };
     }

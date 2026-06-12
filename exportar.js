@@ -77,9 +77,13 @@ function exportarPDF() {
     doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   }
 
-  // --- Manutenções realizadas (histórico) ---
-  secao("Manutenções realizadas");
-  var hist = (DADOS.historico || []).slice().sort(function (a, b) {
+  // --- Manutenções registradas manualmente ---
+  secao("Manutenções registradas");
+  function _origem(r){
+    if(r.origem==='auto'||r.origem==='manual')return r.origem;
+    return String(r.descricao||'').indexOf('[Manutenção]')===0?'auto':'manual';
+  }
+  var hist = (DADOS.historico || []).filter(function(r){return _origem(r)==='manual';}).slice().sort(function (a, b) {
     return String(b.data).localeCompare(String(a.data));
   });
   if (hist.length === 0) {
@@ -99,7 +103,39 @@ function exportarPDF() {
   }
   y += 4;
 
-  // --- Consumo médio ---
+  // --- Tarefas programadas (estado atual) ---
+  var tarefas = (DADOS.tarefas || []).slice();
+  if (tarefas.length) {
+    secao("Tarefas programadas — estado atual");
+    var rotulo = { "Vencido": "VENCIDO", "Próximo": "PRÓXIMO", "OK": "Em dia" };
+    tarefas.forEach(function (t) {
+      checarPagina(6);
+      var st = rotulo[t.status] || t.status || "";
+      // cor do status
+      if (t.status === "Vencido") doc.setTextColor(200, 40, 40);
+      else if (t.status === "Próximo") doc.setTextColor(200, 130, 0);
+      else doc.setTextColor(60, 140, 60);
+      doc.setFont("helvetica", "bold");
+      doc.text(st, M, y);
+      doc.setTextColor(0); doc.setFont("helvetica", "normal");
+      var nome = (t.componente ? t.componente + " — " : "") + (t.tarefa || "");
+      var det = [];
+      if (t.prox_km != null) det.push("próx: " + _expNum(t.prox_km) + " km");
+      if (t.prox_data) det.push(_expData(t.prox_data));
+      var linhaNome = doc.splitTextToSize(nome, larg - 28);
+      doc.text(linhaNome, M + 24, y);
+      if (det.length) {
+        doc.setTextColor(120);
+        doc.text(det.join(" · "), M + 24, y + linhaNome.length * 4.4);
+        doc.setTextColor(0);
+        y += linhaNome.length * 4.4 + 4.4;
+      } else {
+        y += linhaNome.length * 4.4 + 1;
+      }
+    });
+    y += 4;
+  }
+
   var c = DADOS.consumo || [];
   if (c.length) {
     var validos = c.map(function (x) { return +x.consumo_medio || 0; }).filter(function (n) { return n > 0; });
