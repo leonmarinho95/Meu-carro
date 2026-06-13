@@ -381,10 +381,11 @@ function loadCompras(){
       sug.push({mat,tarefa:t.tarefa,status:t.status});
     });
   });
-  $('#listSugestoes').innerHTML=sug.length?sug.map(s=>`<div class="row">
+  $('#listSugestoes').innerHTML=sug.length?sug.map((s,idx)=>`<div class="row">
     <div class="body"><div class="t">${s.mat}</div>
     <div class="s">de: ${s.tarefa}${s.status==='Vencido'?' · <span style="color:var(--red)">vencida</span>':s.status==='Próximo'?' · <span style="color:var(--amber)">próxima</span>':''}</div></div>
-    <button class="addbtn" style="padding:6px 12px;font-size:13px" onclick="addSugestao('${s.mat.replace(/'/g,"\\'")}')">＋ Adicionar</button></div>`).join(''):'<div class="empty">Nenhum material pendente nas tarefas.</div>';
+    <button class="addbtn" style="padding:6px 12px;font-size:13px" onclick="addSugestao(${idx})">＋ Adicionar</button></div>`).join(''):'<div class="empty">Nenhum material pendente nas tarefas.</div>';
+  window._sugestoes=sug;   // guarda para addSugestao usar por índice
 }
 function abrirCompra(){
   modalForm('Novo item',`
@@ -397,8 +398,10 @@ function abrirCompra(){
     async()=>{await call('add_compra',{nome:$('#c_n').value,modelo:$('#c_m').value,qtd:$('#c_q').value,obs:$('#c_o').value});
       fecharModal();await recarregar()});
 }
-// Adiciona uma sugestão como item da lista (pré-preenche o nome para editar).
-function addSugestao(nome){
+// Adiciona uma sugestão (por índice) como item da lista, pré-preenchendo o nome.
+function addSugestao(idx){
+  const s=(window._sugestoes||[])[idx];
+  const nome=s?s.mat:'';
   modalForm('Adicionar à lista',`
     <div class="fg"><label>Nome</label><input id="c_n" value="${nome.replace(/"/g,'&quot;')}"></div>
     <div class="fg"><label>Modelo</label><input id="c_m"></div>
