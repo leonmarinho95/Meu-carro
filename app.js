@@ -23,7 +23,7 @@ async function recarregar(){
   $('#kmVal').textContent=fmt(KM);
   $('#veic').textContent=DADOS.veiculo||'';
   const cur=document.querySelector('nav.tabs button.on').dataset.v;
-  ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,ref:loadRef,corpo:loadCorpo})[cur]();
+  ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,compras:loadCompras,ref:loadRef,corpo:loadCorpo})[cur]();
 }
 
 // ---------- navegação ----------
@@ -358,6 +358,59 @@ function abrirConsumo(){
     async()=>{await call('add_consumo',{km_ant:$('#f_ka').value,km:$('#f_kn').value,consumo:$('#f_l').value,
       data:$('#f_dt').value,obs:$('#f_o').value});fecharModal();await recarregar()});
 }
+
+// ---------- COMPRAS ----------
+function loadCompras(){
+  const itens=DADOS.compras||[];
+  $('#listCompras').innerHTML=itens.length?itens.map(c=>`<div class="row">
+    <div class="chk" onclick="comprarItem(${c.id})" title="Marcar como comprado">✓</div>
+    <div class="body"><div class="t">${c.nome||''}${c.qtd?` <span style="color:var(--muted)">×${c.qtd}</span>`:''}</div>
+    ${(c.modelo||c.obs)?`<div class="s">${c.modelo||''}${c.modelo&&c.obs?' · ':''}${c.obs||''}</div>`:''}</div>
+    <button class="x" onclick="delCompra(${c.id})">×</button></div>`).join(''):'<div class="empty">Lista vazia. Adicione itens ou use as sugestões abaixo.</div>';
+
+  // Sugestões: materiais das tarefas (texto livre), separados por vírgula,
+  // que ainda não estão na lista de compras. Prioriza tarefas vencidas/próximas.
+  const naLista=new Set(itens.map(c=>(c.nome||'').trim().toLowerCase()));
+  const sug=[];const vistos=new Set();
+  (DADOS.tarefas||[]).slice().sort((a,b)=>(a.ordem||9e9)-(b.ordem||9e9)).forEach(t=>{
+    if(!t.materiais)return;
+    String(t.materiais).split(/[,;]/).map(s=>s.trim()).filter(Boolean).forEach(mat=>{
+      const k=mat.toLowerCase();
+      if(naLista.has(k)||vistos.has(k))return;
+      vistos.add(k);
+      sug.push({mat,tarefa:t.tarefa,status:t.status});
+    });
+  });
+  $('#listSugestoes').innerHTML=sug.length?sug.map(s=>`<div class="row">
+    <div class="body"><div class="t">${s.mat}</div>
+    <div class="s">de: ${s.tarefa}${s.status==='Vencido'?' · <span style="color:var(--red)">vencida</span>':s.status==='Próximo'?' · <span style="color:var(--amber)">próxima</span>':''}</div></div>
+    <button class="addbtn" style="padding:6px 12px;font-size:13px" onclick="addSugestao('${s.mat.replace(/'/g,"\\'")}')">＋ Adicionar</button></div>`).join(''):'<div class="empty">Nenhum material pendente nas tarefas.</div>';
+}
+function abrirCompra(){
+  modalForm('Novo item',`
+    <div class="fg"><label>Nome</label><input id="c_n"></div>
+    <div class="fg"><label>Modelo</label><input id="c_m"></div>
+    <div class="frow">
+      <div class="fg"><label>Quantidade</label><input id="c_q" type="number" min="1" value="1"></div>
+    </div>
+    <div class="fg"><label>Observação</label><input id="c_o"></div>`,
+    async()=>{await call('add_compra',{nome:$('#c_n').value,modelo:$('#c_m').value,qtd:$('#c_q').value,obs:$('#c_o').value});
+      fecharModal();await recarregar()});
+}
+// Adiciona uma sugestão como item da lista (pré-preenche o nome para editar).
+function addSugestao(nome){
+  modalForm('Adicionar à lista',`
+    <div class="fg"><label>Nome</label><input id="c_n" value="${nome.replace(/"/g,'&quot;')}"></div>
+    <div class="fg"><label>Modelo</label><input id="c_m"></div>
+    <div class="frow">
+      <div class="fg"><label>Quantidade</label><input id="c_q" type="number" min="1" value="1"></div>
+    </div>
+    <div class="fg"><label>Observação</label><input id="c_o"></div>`,
+    async()=>{await call('add_compra',{nome:$('#c_n').value,modelo:$('#c_m').value,qtd:$('#c_q').value,obs:$('#c_o').value});
+      fecharModal();await recarregar()});
+}
+const comprarItem=async id=>{await call('del_compra',{id});await recarregar()};
+const delCompra=async id=>{if(confirm('Remover item?')){await call('del_compra',{id});await recarregar()}};
 
 // ---------- REFERÊNCIA (ELÉTRICA) ----------
 function loadRef(){

@@ -106,7 +106,8 @@ async function carregarTudoFirestore() {
     _lerColecao("danos"),
     _lerColecao("checklist"),
     _db.collection("referencia").doc("fusiveis_painel").get(),
-    _db.collection("referencia").doc("fusiveis_motor").get()
+    _db.collection("referencia").doc("fusiveis_motor").get(),
+    _lerColecao("compras")
   ]);
 
   var cfg = res[0].exists ? res[0].data() : {};
@@ -139,7 +140,8 @@ async function carregarTudoFirestore() {
     referencia: {
       fusiveis_painel: _refLinhas(res[8]),
       fusiveis_motor: _refLinhas(res[9])
-    }
+    },
+    compras: res[10]
   };
 }
 
@@ -285,6 +287,16 @@ async function escreverFirestore(acao, b) {
       });
       return { ok: true };
     }
+
+    case "add_compra": {
+      var cpid = await _proxId("compras");
+      await _db.collection("compras").doc(String(cpid)).set({
+        id: cpid, nome: b.nome || null, modelo: b.modelo || null,
+        qtd: b.qtd || null, obs: b.obs || null
+      });
+      return { ok: true };
+    }
+    case "del_compra": return _del("compras", b.id);
 
     default:
       return { erro: "acao_desconhecida" };
