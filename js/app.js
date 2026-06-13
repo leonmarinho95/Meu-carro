@@ -33,7 +33,7 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   $('#v-'+b.dataset.v).classList.add('on');
   window.scrollTo(0,0);
-  ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,ref:loadRef,corpo:loadCorpo})[b.dataset.v]();
+  ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,compras:loadCompras,ref:loadRef,corpo:loadCorpo})[b.dataset.v]();
 });
 
 // ---------- card de tarefa ----------
