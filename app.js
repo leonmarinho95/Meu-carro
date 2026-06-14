@@ -50,7 +50,7 @@ function taskCard(t,full){
       ${t.prox_km!=null?`<span>próxima: <b>${fmt(t.prox_km)}</b> km</span>`:''}
       ${t.prox_data?`<span>até <b>${fmtData(t.prox_data)}</b></span>`:''}
     </div>
-    <div class="extra" id="ex${t.id}">
+    <div class="extra">
       ${t.obs?`<div>📋 ${t.obs}</div>`:''}
       ${t.materiais?`<div class="mat">🔧 ${t.materiais}</div>`:''}
       <div style="color:var(--faint);margin-top:5px">Frequência: ${t.freq_km?fmt(t.freq_km)+' km':''} ${t.freq_dias?'/ '+fmt(t.freq_dias)+' dias':''} · Última: ${fmt(t.ult_km)} km em ${fmtData(t.ult_data)}</div>
@@ -58,11 +58,15 @@ function taskCard(t,full){
     <div class="acts">
       <button class="done" onclick="marcarFeita(${t.id})">✓ Fiz agora</button>
       ${full?`<button onclick="abrirTarefa(${t.id})">Editar</button>`:''}
-      <button class="more" onclick="toggleExtra(${t.id})">${(t.obs||t.materiais)?'detalhes ▾':'info ▾'}</button>
+      <button class="more" onclick="toggleExtra(this)">${(t.obs||t.materiais)?'detalhes ▾':'info ▾'}</button>
     </div>
   </div>`;
 }
-function toggleExtra(id){$('#ex'+id).classList.toggle('show')}
+// Alterna o .extra do card a que o botão pertence (sem depender de id único).
+function toggleExtra(btn){
+  const card=btn.closest('.card');
+  if(card){const ex=card.querySelector('.extra');if(ex)ex.classList.toggle('show');}
+}
 
 // ---------- DASHBOARD ----------
 function loadDash(){
