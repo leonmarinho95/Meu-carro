@@ -28,18 +28,38 @@ async function recarregar(){
 }
 
 // ---------- ALERTAS (sino) ----------
-// Classifica tarefas por urgência de tempo: vencida, <=15 dias, <=30 dias.
+// Dispensas ficam no navegador: { "<id>": "<faixa>" } — a faixa em que foi dispensada.
+function _getDispensas(){try{return JSON.parse(localStorage.getItem('alertasDispensados')||'{}');}catch(e){return {};}}
+function _setDispensas(d){localStorage.setItem('alertasDispensados',JSON.stringify(d));}
+function _faixaDe(rd){return rd<0?'venc':(rd<=15?'d15':(rd<=30?'d30':null));}
+
+// Classifica tarefas por urgência de tempo. Só entram tarefas com
+// periodicidade (freq_dias) maior que 30 dias. Dispensadas na MESMA faixa saem.
 function calcularAlertas(){
+  const disp=_getDispensas();
   const venc=[],d15=[],d30=[];
   (DADOS.tarefas||[]).forEach(t=>{
     const rd=t.rest_dias;
-    if(rd==null)return;                 // sem prazo por dias: ignora aqui
-    if(rd<0)venc.push(t);
-    else if(rd<=15)d15.push(t);
-    else if(rd<=30)d30.push(t);
+    if(rd==null)return;                       // sem prazo por dias
+    if(!(num(t.freq_dias)>30))return;          // só periodicidade > 30 dias
+    const faixa=_faixaDe(rd);
+    if(!faixa)return;                          // mais de 30 dias no futuro
+    if(disp[String(t.id)]===faixa)return;      // dispensada nesta faixa
+    if(faixa==='venc')venc.push(t);
+    else if(faixa==='d15')d15.push(t);
+    else d30.push(t);
   });
   const ord=(a,b)=>(a.rest_dias)-(b.rest_dias);
   return {venc:venc.sort(ord),d15:d15.sort(ord),d30:d30.sort(ord)};
+}
+// Dispensa um alerta na faixa atual; volta se a tarefa piorar de faixa.
+function dispensarAlerta(id){
+  const t=(DADOS.tarefas||[]).find(x=>String(x.id)===String(id));
+  if(!t)return;
+  const faixa=_faixaDe(t.rest_dias);
+  if(!faixa)return;
+  const d=_getDispensas();d[String(id)]=faixa;_setDispensas(d);
+  atualizarSino();abrirAlertas();             // re-renderiza a lista sem o item
 }
 function atualizarSino(){
   const a=calcularAlertas();
@@ -64,8 +84,12 @@ function abrirAlertas(){
     const txt=rd<0?`vencida há ${Math.abs(rd)} dias`:`em ${rd} dias`;
     const km=t.prox_km!=null?` · ${fmt(t.prox_km)} km`:'';
     return `<div class="alerta-item">
-      <div class="alerta-t">${t.componente?t.componente+' — ':''}${t.tarefa||''}</div>
-      <div class="alerta-m">${t.prox_data?fmtData(t.prox_data):''}${km} · <b>${txt}</b></div></div>`;
+      <div class="alerta-body">
+        <div class="alerta-t">${t.componente?t.componente+' — ':''}${t.tarefa||''}</div>
+        <div class="alerta-m">${t.prox_data?fmtData(t.prox_data):''}${km} · <b>${txt}</b></div>
+      </div>
+      <button class="alerta-x" onclick="dispensarAlerta(${t.id})" title="Dispensar até mudar">✕</button>
+    </div>`;
   };
   const bloco=(titulo,cor,arr)=>arr.length?`<div class="alerta-grupo">
     <div class="alerta-cab" style="color:${cor}">${titulo} (${arr.length})</div>
