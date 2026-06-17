@@ -24,6 +24,60 @@ async function recarregar(){
   $('#veic').textContent=DADOS.veiculo||'';
   const cur=document.querySelector('nav.tabs button.on').dataset.v;
   ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,compras:loadCompras,ref:loadRef,corpo:loadCorpo})[cur]();
+  atualizarSino();
+}
+
+// ---------- ALERTAS (sino) ----------
+// Classifica tarefas por urgência de tempo: vencida, <=15 dias, <=30 dias.
+function calcularAlertas(){
+  const venc=[],d15=[],d30=[];
+  (DADOS.tarefas||[]).forEach(t=>{
+    const rd=t.rest_dias;
+    if(rd==null)return;                 // sem prazo por dias: ignora aqui
+    if(rd<0)venc.push(t);
+    else if(rd<=15)d15.push(t);
+    else if(rd<=30)d30.push(t);
+  });
+  const ord=(a,b)=>(a.rest_dias)-(b.rest_dias);
+  return {venc:venc.sort(ord),d15:d15.sort(ord),d30:d30.sort(ord)};
+}
+function atualizarSino(){
+  const a=calcularAlertas();
+  const n=a.venc.length+a.d15.length+a.d30.length;
+  const badge=$('#sinoBadge');
+  if(!badge)return;
+  if(n>0){badge.style.display='flex';badge.textContent=n;
+    // vermelho se há vencidas, âmbar se só futuras
+    badge.style.background=a.venc.length?'var(--red)':'var(--amber)';
+  }else{badge.style.display='none';}
+}
+function abrirAlertas(){
+  const a=calcularAlertas();
+  const total=a.venc.length+a.d15.length+a.d30.length;
+  if(total===0){
+    modalForm('Alertas de manutenção',`<div class="empty" style="padding:20px 0">Nada chegando. Tudo em dia. 👌</div>`,null);
+    $('#mSave').style.display='none';
+    return;
+  }
+  const item=t=>{
+    const rd=t.rest_dias;
+    const txt=rd<0?`vencida há ${Math.abs(rd)} dias`:`em ${rd} dias`;
+    const km=t.prox_km!=null?` · ${fmt(t.prox_km)} km`:'';
+    return `<div class="alerta-item">
+      <div class="alerta-t">${t.componente?t.componente+' — ':''}${t.tarefa||''}</div>
+      <div class="alerta-m">${t.prox_data?fmtData(t.prox_data):''}${km} · <b>${txt}</b></div></div>`;
+  };
+  const bloco=(titulo,cor,arr)=>arr.length?`<div class="alerta-grupo">
+    <div class="alerta-cab" style="color:${cor}">${titulo} (${arr.length})</div>
+    ${arr.map(item).join('')}</div>`:'';
+  const html=`<div class="alerta-lista">
+    ${bloco('Vencidas','var(--red)',a.venc)}
+    ${bloco('Vencem em até 15 dias','var(--amber)',a.d15)}
+    ${bloco('Vencem em até 30 dias','var(--blue)',a.d30)}
+  </div>`;
+  modalForm('Alertas de manutenção',html,null);
+  // o modal é só leitura: esconde o botão Salvar
+  const sv=$('#mSave');if(sv)sv.style.display='none';
 }
 
 // ---------- navegação ----------
