@@ -134,7 +134,7 @@ async function carregarTudoFirestore() {
     historico: res[2],
     nao_programadas: np,
     inspecoes: res[4],
-    consumo: res[5],
+    consumo: (res[5]||[]).slice().sort(function(a,b){return (_num(a.id)||0)-(_num(b.id)||0);}),
     danos: res[6],
     checklist: res[7],
     referencia: {
@@ -145,9 +145,10 @@ async function carregarTudoFirestore() {
   };
 }
 
-// ---------- autenticação ----------
-function fbLogin(email, senha) {
-  return _auth.signInWithEmailAndPassword(email, senha);
+// ---------- autenticação (Google) ----------
+function fbLogin() {
+  var prov = new firebase.auth.GoogleAuthProvider();
+  return _auth.signInWithPopup(prov);
 }
 function fbLogout() {
   return _auth.signOut();
@@ -269,6 +270,17 @@ async function escreverFirestore(acao, b) {
       });
       return { ok: true };
     }
+    case "edit_consumo": {
+      var ekm = _num(b.km) || 0, ekmAnt = _num(b.km_ant) || 0, ec = _num(b.consumo) || 0;
+      var eperc = (ekm && ekmAnt) ? ekm - ekmAnt : null;
+      var emedia = (eperc && ec) ? eperc / ec : null;
+      await _db.collection("consumo").doc(String(b.id)).set({
+        data: b.data || _hojeISO(), km: ekm, km_ant: ekmAnt,
+        percorrido: eperc, consumo: ec, consumo_medio: emedia, obs: b.obs || null
+      }, { merge: true });
+      return { ok: true };
+    }
+    case "del_consumo": return _del("consumo", b.id);
 
     case "add_dano": {
       var did = await _proxId("danos");

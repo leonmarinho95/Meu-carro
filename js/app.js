@@ -397,8 +397,28 @@ function loadHist(){
     <div class="body"><div class="t">${x.consumo_medio?(+x.consumo_medio).toFixed(2):'—'} km/L
       <span style="color:var(--faint);font-weight:400;font-size:13px">· ${fmtData(x.data)}</span></div>
     <div class="meta">${fmt(x.percorrido)} km · ${x.consumo?(+x.consumo).toFixed(1)+' L':''} ${x.obs?'· '+x.obs:''}</div>
-    <div class="bar"><i style="width:${(+x.consumo_medio||0)/max*100}%"></i></div></div></div>`).join('')||'<div class="empty">Sem registros de consumo.</div>';
+    <div class="bar"><i style="width:${(+x.consumo_medio||0)/max*100}%"></i></div></div>
+    <button class="x" onclick="editarConsumo(${x.id})" style="color:var(--muted);font-size:18px">✎</button>
+    <button class="x" onclick="delConsumo(${x.id})">×</button></div>`).join('')||'<div class="empty">Sem registros de consumo.</div>';
 }
+// Editar um abastecimento existente.
+function editarConsumo(id){
+  const x=(DADOS.consumo||[]).find(r=>String(r.id)===String(id));
+  if(!x)return;
+  modalForm('Editar abastecimento',`
+    <div class="frow">
+      <div class="fg"><label>KM anterior</label><input id="f_ka" type="number" value="${x.km_ant||''}"></div>
+      <div class="fg"><label>KM agora</label><input id="f_kn" type="number" value="${x.km||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Litros abastecidos</label><input id="f_l" type="number" step="0.01" value="${x.consumo||''}"></div>
+      <div class="fg"><label>Data</label><input id="f_dt" type="date" value="${(String(x.data).match(/\d{4}-\d{2}-\d{2}/)||[hoje()])[0]}"></div>
+    </div>
+    <div class="fg"><label>Observação</label><input id="f_o" value="${(x.obs||'').replace(/"/g,'&quot;')}"></div>`,
+    async()=>{await call('edit_consumo',{id,km_ant:$('#f_ka').value,km:$('#f_kn').value,consumo:$('#f_l').value,
+      data:$('#f_dt').value,obs:$('#f_o').value});fecharModal();await recarregar()});
+}
+const delConsumo=async id=>{if(confirm('Excluir abastecimento?')){await call('del_consumo',{id});await recarregar()}};
 const delHist=async id=>{if(confirm('Excluir registro?')){await call('del_historico',{id});await recarregar()}};
 // Editar um registro do histórico (descrição, data, km).
 function editarHist(id){
@@ -426,7 +446,8 @@ function abrirHist(){
 }
 function abrirConsumo(){
   const c=DADOS.consumo||[];
-  const ultKm=c.length?(c[c.length-1].km||''):'';
+  // KM anterior = maior km já registrado (robusto a ordem dos dados)
+  const ultKm=c.length?Math.max(...c.map(x=>num(x.km)||0)):'';
   modalForm('Novo abastecimento',`
     <div class="frow">
       <div class="fg"><label>KM anterior</label><input id="f_ka" type="number" value="${ultKm}"></div>
@@ -608,16 +629,14 @@ function hoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth(
 
 // ---------- inicialização / login Firebase ----------
 $('#cfgBtn').onclick=async()=>{
-  const email=$('#cfgUrl').value.trim(), senha=$('#cfgSenha').value;
-  const erro=$('#setupErro');
-  if(!email||!senha){erro.style.display='block';erro.textContent='Preencha o e-mail e a senha.';return;}
-  const btn=$('#cfgBtn');btn.disabled=true;btn.textContent='Entrando...';
+  const erro=$('#setupErro');erro.style.display='none';
+  const btn=$('#cfgBtn');btn.disabled=true;btn.textContent='Abrindo o Google...';
   try{
-    await fbLogin(email,senha);   // a sessão fica salva; onAuth cuida do resto
+    await fbLogin();   // popup do Google; a sessão fica salva; onAuth cuida do resto
   }catch(e){
     erro.style.display='block';
-    erro.textContent='E-mail ou senha incorretos.';
-    btn.disabled=false;btn.textContent='Entrar';
+    erro.textContent=(e&&e.code==='auth/popup-closed-by-user')?'Login cancelado.':'Não consegui entrar com o Google. Tente de novo.';
+    btn.disabled=false;btn.textContent='Entrar com Google';
   }
 };
 
@@ -635,6 +654,6 @@ fbOnAuth(async(user)=>{
     }
   }else{
     document.body.classList.remove('pronto');
-    const btn=$('#cfgBtn');if(btn){btn.disabled=false;btn.textContent='Entrar';}
+    const btn=$('#cfgBtn');if(btn){btn.disabled=false;btn.textContent='Entrar com Google';}
   }
 });
