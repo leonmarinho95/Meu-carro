@@ -620,7 +620,19 @@ function modalForm(titulo,html,onSave,onDel){
   $('#ov').classList.add('on');
   $('#mCancel').onclick=fecharModal;
   $('#mSave').onclick=async()=>{const b=$('#mSave');b.disabled=true;b.textContent='Salvando...';
-    try{await onSave();}catch(e){toast('Erro ao salvar');b.disabled=false;b.textContent='Salvar';}};
+    try{
+      // Race: se a operação não confirmar em 4s, assume offline (dado ficou na fila).
+      await Promise.race([
+        onSave(),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error('offline')),4000))
+      ]);
+    }catch(e){
+      if(e&&e.message==='offline'){
+        // Escrita foi para a fila do Firestore — vai sincronizar quando o sinal voltar.
+        fecharModal();await recarregar();toast('Salvo localmente. Sincroniza quando o sinal voltar.');return;
+      }
+      toast('Erro ao salvar');b.disabled=false;b.textContent='Salvar';
+    }};
   if(onDel)$('#mDel').onclick=onDel;
 }
 function fecharModal(){$('#ov').classList.remove('on')}
