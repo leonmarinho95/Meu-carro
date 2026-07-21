@@ -113,7 +113,15 @@ function _refLinhas(snap) {
 
 // ---------- leitura de uma coleção inteira ----------
 async function _lerColecao(nome) {
-  var snap = await _db.collection(nome).get();
+  var snap;
+  try {
+    snap = await Promise.race([
+      _db.collection(nome).get(),
+      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, 1500); })
+    ]);
+  } catch(e) {
+    snap = await _db.collection(nome).get({ source: 'cache' });
+  }
   var out = [];
   snap.forEach(function (doc) { out.push(doc.data()); });
   return out;
@@ -123,7 +131,7 @@ async function _lerColecao(nome) {
 async function carregarTudoFirestore() {
   // Lê tudo em paralelo (rápido, sem cold start).
   var res = await Promise.all([
-    _db.collection("config").doc("app").get(),
+    _getDoc(_db.collection("config").doc("app")),
     _lerColecao("tarefas"),
     _lerColecao("historico"),
     _lerColecao("nao_programadas"),
@@ -131,8 +139,8 @@ async function carregarTudoFirestore() {
     _lerColecao("consumo"),
     _lerColecao("danos"),
     _lerColecao("checklist"),
-    _db.collection("referencia").doc("fusiveis_painel").get(),
-    _db.collection("referencia").doc("fusiveis_motor").get(),
+    _getDoc(_db.collection("referencia").doc("fusiveis_painel")),
+    _getDoc(_db.collection("referencia").doc("fusiveis_motor")),
     _lerColecao("compras")
   ]);
 
@@ -205,10 +213,9 @@ async function _getDoc(ref) {
   try {
     return await Promise.race([
       ref.get(),
-      new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 2000); })
+      new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 1500); })
     ]);
   } catch(e) {
-    // timeout ou sem rede: busca do cache
     return await ref.get({ source: 'cache' });
   }
 }
