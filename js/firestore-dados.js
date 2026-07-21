@@ -25,6 +25,13 @@ var _db = firebase.firestore();
 var _auth = firebase.auth();
 // Sessão persistente: você loga uma vez e continua logado entre aberturas.
 _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+// Cache offline: dados disponíveis sem sinal; escritas ficam na fila e
+// sincronizam automaticamente quando a rede volta.
+_db.enablePersistence().catch(function(err) {
+  // Falha silenciosa — acontece se houver duas abas abertas ao mesmo tempo.
+  // O app volta ao comportamento normal (sem cache), sem quebrar nada.
+  console.warn('Cache offline não disponível:', err.code);
+});
 
 // ---------- helpers ----------
 function _num(v) {
