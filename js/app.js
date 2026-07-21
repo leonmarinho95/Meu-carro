@@ -619,20 +619,22 @@ function modalForm(titulo,html,onSave,onDel){
     <button class="save" id="mSave">Salvar</button></div>`;
   $('#ov').classList.add('on');
   $('#mCancel').onclick=fecharModal;
-  $('#mSave').onclick=async()=>{const b=$('#mSave');b.disabled=true;b.textContent='Salvando...';
+  $('#mSave').onclick=async()=>{
+    const b=$('#mSave');b.disabled=true;b.textContent='Salvando...';
+    // Timeout de segurança: se a operação não retornar em 5s (ex.: leitura offline
+    // pendurada), fecha assim mesmo — a escrita fica na fila e sincroniza depois.
+    let resolvido=false;
+    const seguranca=setTimeout(()=>{
+      if(!resolvido){fecharModal();recarregar();toast('Salvo. Sincroniza quando houver sinal.');}
+    },5000);
     try{
-      // Race: se a operação não confirmar em 4s, assume offline (dado ficou na fila).
-      await Promise.race([
-        onSave(),
-        new Promise((_,rej)=>setTimeout(()=>rej(new Error('offline')),4000))
-      ]);
+      await onSave();          // onSave já faz fecharModal + recarregar em caso normal
+      resolvido=true;clearTimeout(seguranca);
     }catch(e){
-      if(e&&e.message==='offline'){
-        // Escrita foi para a fila do Firestore — vai sincronizar quando o sinal voltar.
-        fecharModal();await recarregar();toast('Salvo localmente. Sincroniza quando o sinal voltar.');return;
-      }
+      resolvido=true;clearTimeout(seguranca);
       toast('Erro ao salvar');b.disabled=false;b.textContent='Salvar';
-    }};
+    }
+  };
   if(onDel)$('#mDel').onclick=onDel;
 }
 function fecharModal(){$('#ov').classList.remove('on')}
