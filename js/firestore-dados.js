@@ -268,6 +268,7 @@ async function escreverFirestore(acao, b) {
         id: cid, data: b.data || _hojeISO(), km: km2, km_ant: kmAnt,
         percorrido: perc, consumo: c, consumo_medio: media, obs: b.obs || null
       });
+      await _atualizarKmSeMaior(km2);   // hodômetro acompanha o abastecimento
       return { ok: true };
     }
     case "edit_consumo": {
@@ -278,6 +279,7 @@ async function escreverFirestore(acao, b) {
         data: b.data || _hojeISO(), km: ekm, km_ant: ekmAnt,
         percorrido: eperc, consumo: ec, consumo_medio: emedia, obs: b.obs || null
       }, { merge: true });
+      await _atualizarKmSeMaior(ekm);   // hodômetro acompanha a edição
       return { ok: true };
     }
     case "del_consumo": return _del("consumo", b.id);
@@ -318,6 +320,17 @@ async function escreverFirestore(acao, b) {
 async function _del(colecao, id) {
   await _db.collection(colecao).doc(String(id)).delete();
   return { ok: true };
+}
+// Atualiza o hodômetro (config.km_atual) apenas se o km informado for maior.
+// Nunca faz o hodômetro retroceder — protege contra edições de registros antigos.
+async function _atualizarKmSeMaior(km) {
+  var novo = _num(km);
+  if (!novo) return;
+  var snap = await _db.collection("config").doc("app").get();
+  var atual = _num((snap.exists ? snap.data() : {}).km_atual) || 0;
+  if (novo > atual) {
+    await _db.collection("config").doc("app").set({ km_atual: novo }, { merge: true });
+  }
 }
 async function _toggle(colecao, id, campo) {
   var ref = _db.collection(colecao).doc(String(id));
