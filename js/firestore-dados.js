@@ -188,7 +188,7 @@ function fbOnAuth(cb) {
 // Próximo id numérico de uma coleção: lê o maior id atual +1.
 // (Coleções pequenas; custo desprezível. Sob o lock natural do Firestore por doc.)
 async function _proxId(colecao) {
-  var snap = await _db.collection(colecao).get();
+  var snap = await _getColecao(colecao);
   var max = 0;
   snap.forEach(function (d) { var n = _num(d.data().id) || 0; if (n > max) max = n; });
   return max + 1;
@@ -199,7 +199,29 @@ function _hojeISO() {
   return _fmtData(d);
 }
 
-// Despacha uma ação de escrita para o Firestore. Mesma assinatura do antigo call().
+// Leitura segura para offline: tenta o servidor, mas se não responder em 2s
+// (ou se offline), busca direto do cache local. Evita travar operações de escrita.
+async function _getDoc(ref) {
+  try {
+    return await Promise.race([
+      ref.get(),
+      new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 2000); })
+    ]);
+  } catch(e) {
+    // timeout ou sem rede: busca do cache
+    return await ref.get({ source: 'cache' });
+  }
+}
+async function _getColecao(colecao) {
+  try {
+    return await Promise.race([
+      _db.collection(colecao).get(),
+      new Promise(function(_, rej) { setTimeout(function() { rej(new Error('timeout')); }, 2000); })
+    ]);
+  } catch(e) {
+    return await _db.collection(colecao).get({ source: 'cache' });
+  }
+}
 async function escreverFirestore(acao, b) {
   b = b || {};
   switch (acao) {
@@ -211,10 +233,10 @@ async function escreverFirestore(acao, b) {
 
     case "marcar_feita": {
       var ref = _db.collection("tarefas").doc(String(b.id));
-      var snap = await ref.get();
+      var snap = await _getDoc(ref);
       if (!snap.exists) return { erro: "nao_encontrada" };
       var t = snap.data();
-      var cfgSnap = await _db.collection("config").doc("app").get();
+      var cfgSnap = await _getDoc(_db.collection("config").doc("app"));
       var kmCfg = _num((cfgSnap.exists ? cfgSnap.data() : {}).km_atual) || 0;
       var km = (b.km !== "" && b.km != null) ? _num(b.km) : kmCfg;
       var data = b.data || _hojeISO();
@@ -352,7 +374,7 @@ async function _del(colecao, id) {
 async function _atualizarKmSeMaior(km) {
   var novo = _num(km);
   if (!novo) return;
-  var snap = await _db.collection("config").doc("app").get();
+  var snap = await _getDoc(_db.collection("config").doc("app"));
   var atual = _num((snap.exists ? snap.data() : {}).km_atual) || 0;
   if (novo > atual) {
     await _db.collection("config").doc("app").set({ km_atual: novo }, { merge: true });
@@ -360,7 +382,7 @@ async function _atualizarKmSeMaior(km) {
 }
 async function _toggle(colecao, id, campo) {
   var ref = _db.collection(colecao).doc(String(id));
-  var snap = await ref.get();
+  var snap = await _getDoc(ref);
   if (!snap.exists) return { erro: "nao_encontrada" };
   var atual = snap.data()[campo];
   var nova = {}; nova[campo] = atual ? 0 : 1;
