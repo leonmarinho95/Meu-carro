@@ -27,11 +27,30 @@ var _auth = firebase.auth();
 _auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 // Cache offline: dados disponíveis sem sinal; escritas ficam na fila e
 // sincronizam automaticamente quando a rede volta.
-_db.enablePersistence().catch(function(err) {
-  // Falha silenciosa — acontece se houver duas abas abertas ao mesmo tempo.
-  // O app volta ao comportamento normal (sem cache), sem quebrar nada.
-  console.warn('Cache offline não disponível:', err.code);
-});
+// Tenta a versão multi-aba (várias abas compartilham o cache); se indisponível,
+// cai para a versão de aba única.
+(function(){
+  function ativou(){ console.info('Cache offline ATIVO.'); }
+  function falhou(err){
+    if(err.code==='failed-precondition'){
+      console.warn('Cache offline: outra aba já tem o controle. Feche abas extras do app.');
+    }else if(err.code==='unimplemented'){
+      console.warn('Cache offline: navegador não suporta.');
+    }else{
+      console.warn('Cache offline indisponível:', err.code||err);
+    }
+  }
+  if(_db.enableMultiTabIndexedDbPersistence){
+    _db.enableMultiTabIndexedDbPersistence().then(ativou).catch(function(err){
+      // se multi-aba falhar por precondição, tenta a de aba única
+      if(err.code==='failed-precondition' && _db.enablePersistence){
+        _db.enablePersistence().then(ativou).catch(falhou);
+      }else{ falhou(err); }
+    });
+  }else if(_db.enablePersistence){
+    _db.enablePersistence().then(ativou).catch(falhou);
+  }
+})();
 
 // ---------- helpers ----------
 function _num(v) {
