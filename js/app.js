@@ -628,16 +628,17 @@ function modalForm(titulo,html,onSave,onDel){
   $('#mCancel').onclick=fecharModal;
   $('#mSave').onclick=async()=>{
     const b=$('#mSave');b.disabled=true;b.textContent='Salvando...';
-    // Timeout de segurança: se a operação não retornar em 5s (ex.: leitura offline
-    // pendurada), fecha assim mesmo — a escrita fica na fila e sincroniza depois.
+    console.log('[SAVE] início');const _t0=Date.now();
     let resolvido=false;
     const seguranca=setTimeout(()=>{
-      if(!resolvido){fecharModal();recarregar();toast('Salvo. Sincroniza quando houver sinal.');}
+      if(!resolvido){console.warn('[SAVE] TIMEOUT 5s disparou — algo travou');fecharModal();recarregar();toast('Salvo. Sincroniza quando houver sinal.');}
     },5000);
     try{
-      await onSave();          // onSave já faz fecharModal + recarregar em caso normal
+      await onSave();
+      console.log('[SAVE] onSave concluído em',Date.now()-_t0,'ms');
       resolvido=true;clearTimeout(seguranca);
     }catch(e){
+      console.error('[SAVE] erro:',e);
       resolvido=true;clearTimeout(seguranca);
       toast('Erro ao salvar');b.disabled=false;b.textContent='Salvar';
     }
