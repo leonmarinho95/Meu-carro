@@ -14,17 +14,24 @@ function num(v){if(v===''||v===null||v===undefined)return null;const n=Number(St
 // ---------- escrita (agora no Firestore) ----------
 // Mantém a assinatura call(acao, extra) para todas as chamadas existentes.
 async function call(acao,extra){
-  return await escreverFirestore(acao,extra||{});
+  console.time('DIAG call '+acao);
+  const r=await escreverFirestore(acao,extra||{});
+  console.timeEnd('DIAG call '+acao);
+  return r;
 }
 // Recarrega todos os dados do Firestore e atualiza a tela atual.
 async function recarregar(){
+  console.time('DIAG recarregar');
+  console.time('DIAG carregarTudo');
   DADOS=await carregarTudoFirestore();
+  console.timeEnd('DIAG carregarTudo');
   KM=DADOS.km_atual;
   $('#kmVal').textContent=fmt(KM);
   $('#veic').textContent=DADOS.veiculo||'';
   const cur=document.querySelector('nav.tabs button.on').dataset.v;
   ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,compras:loadCompras,ref:loadRef,corpo:loadCorpo})[cur]();
   atualizarSino();
+  console.timeEnd('DIAG recarregar');
 }
 
 // ---------- ALERTAS (sino) ----------
