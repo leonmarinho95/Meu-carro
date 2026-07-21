@@ -14,24 +14,26 @@ function num(v){if(v===''||v===null||v===undefined)return null;const n=Number(St
 // ---------- escrita (agora no Firestore) ----------
 // Mantém a assinatura call(acao, extra) para todas as chamadas existentes.
 async function call(acao,extra){
-  console.time('DIAG call '+acao);
-  const r=await escreverFirestore(acao,extra||{});
-  console.timeEnd('DIAG call '+acao);
-  return r;
+  // Não esperamos a confirmação do servidor: com o cache offline, a escrita é
+  // gravada localmente na hora e sincroniza depois. Se em 700ms o servidor não
+  // confirmou (ex.: offline), seguimos assim mesmo — o dado não se perde.
+  const op=escreverFirestore(acao,extra||{});
+  op.catch(e=>console.warn('escrita sincronizará depois:',acao,e&&e.code));
+  await Promise.race([
+    op.catch(()=>{}),
+    new Promise(res=>setTimeout(res,700))
+  ]);
+  return {ok:true};
 }
 // Recarrega todos os dados do Firestore e atualiza a tela atual.
 async function recarregar(){
-  console.time('DIAG recarregar');
-  console.time('DIAG carregarTudo');
   DADOS=await carregarTudoFirestore();
-  console.timeEnd('DIAG carregarTudo');
   KM=DADOS.km_atual;
   $('#kmVal').textContent=fmt(KM);
   $('#veic').textContent=DADOS.veiculo||'';
   const cur=document.querySelector('nav.tabs button.on').dataset.v;
   ({dash:loadDash,todas:loadTodas,pend:loadPend,hist:loadHist,compras:loadCompras,ref:loadRef,corpo:loadCorpo})[cur]();
   atualizarSino();
-  console.timeEnd('DIAG recarregar');
 }
 
 // ---------- ALERTAS (sino) ----------
@@ -628,20 +630,8 @@ function modalForm(titulo,html,onSave,onDel){
   $('#mCancel').onclick=fecharModal;
   $('#mSave').onclick=async()=>{
     const b=$('#mSave');b.disabled=true;b.textContent='Salvando...';
-    console.log('[SAVE] início');const _t0=Date.now();
-    let resolvido=false;
-    const seguranca=setTimeout(()=>{
-      if(!resolvido){console.warn('[SAVE] TIMEOUT 5s disparou — algo travou');fecharModal();recarregar();toast('Salvo. Sincroniza quando houver sinal.');}
-    },5000);
-    try{
-      await onSave();
-      console.log('[SAVE] onSave concluído em',Date.now()-_t0,'ms');
-      resolvido=true;clearTimeout(seguranca);
-    }catch(e){
-      console.error('[SAVE] erro:',e);
-      resolvido=true;clearTimeout(seguranca);
-      toast('Erro ao salvar');b.disabled=false;b.textContent='Salvar';
-    }
+    try{ await onSave(); }
+    catch(e){ toast('Erro ao salvar'); b.disabled=false; b.textContent='Salvar'; console.error(e); }
   };
   if(onDel)$('#mDel').onclick=onDel;
 }
