@@ -14,15 +14,18 @@ function num(v){if(v===''||v===null||v===undefined)return null;const n=Number(St
 // ---------- escrita (agora no Firestore) ----------
 // Mantém a assinatura call(acao, extra) para todas as chamadas existentes.
 async function call(acao,extra){
-  // Não esperamos a confirmação do servidor: com o cache offline, a escrita é
-  // gravada localmente na hora e sincroniza depois. Se em 700ms o servidor não
-  // confirmou (ex.: offline), seguimos assim mesmo — o dado não se perde.
   const op=escreverFirestore(acao,extra||{});
   op.catch(e=>console.warn('escrita sincronizará depois:',acao,e&&e.code));
-  await Promise.race([
-    op.catch(()=>{}),
-    new Promise(res=>setTimeout(res,700))
-  ]);
+  if(navigator.onLine){
+    // Online: espera a escrita confirmar de verdade, para o recarregar seguinte
+    // já ler o estado novo. (Com rede, isso é rápido.)
+    try{ await op; }catch(e){ /* deixa o onSave tratar erro se quiser */ }
+  }else{
+    // Offline: a escrita foi aplicada ao cache local; não esperamos o servidor
+    // (a Promise só resolveria quando a rede voltar). Damos um tick para o
+    // cache assentar antes do recarregar.
+    await new Promise(res=>setTimeout(res,150));
+  }
   return {ok:true};
 }
 // Recarrega todos os dados do Firestore e atualiza a tela atual.
