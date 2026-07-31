@@ -71,6 +71,12 @@ function _fmtData(d) {
   var y = d.getFullYear(), m = ("0" + (d.getMonth() + 1)).slice(-2), dia = ("0" + d.getDate()).slice(-2);
   return y + "-" + m + "-" + dia;
 }
+// Normaliza qualquer data para yyyy-mm-dd. Retorna a original se não reconhecer.
+function _normalizarData(s) {
+  if (!s) return s;
+  var d = _parseData(s);
+  return d ? _fmtData(d) : s;
+}
 
 // ---------- cálculo das tarefas (portado de Codigo.gs > calcular) ----------
 function _calcular(t, kmAtual) {
@@ -159,13 +165,36 @@ async function carregarTudoFirestore() {
     return n;
   });
 
+  // Histórico: normaliza datas para yyyy-mm-dd (em memória, e regrava legado no banco).
+  var historico = res[2] || [];
+  var precisamNormalizar = [];
+  historico.forEach(function (h) {
+    var orig = h.data;
+    var norm = _normalizarData(orig);
+    if (norm !== orig) { h.data = norm; precisamNormalizar.push(h); }
+  });
+  // Regrava no Firestore apenas os que mudaram, uma única vez (flag no localStorage).
+  if (precisamNormalizar.length && !localStorage.getItem('datasNormalizadas')) {
+    precisamNormalizar.forEach(function (h) {
+      _db.collection("historico").doc(String(h.id)).set({ data: h.data }, { merge: true })
+        .catch(function(e){ console.warn('normalização de data adiada:', h.id, e && e.code); });
+    });
+    localStorage.setItem('datasNormalizadas', '1');
+    console.info('Datas do histórico normalizadas:', precisamNormalizar.length, 'registro(s).');
+  }
+
+  // Ordena o histórico por data (crescente); com datas normalizadas, fica consistente.
+  historico.sort(function (a, b) {
+    return String(a.data || '').localeCompare(String(b.data || ''));
+  });
+
   return {
     km_atual: kmAtual,
     veiculo: cfg.veiculo || "Volkswagen Fox 1.0 (2012)",
     tarefas: tarefas,
     vencidos: vencidos, proximos: proximos,
     n_vencidos: vencidos.length, n_proximos: proximos.length, total: tarefas.length,
-    historico: res[2],
+    historico: historico,
     nao_programadas: np,
     inspecoes: res[4],
     consumo: (res[5]||[]).slice().sort(function(a,b){return (_num(a.id)||0)-(_num(b.id)||0);}),
